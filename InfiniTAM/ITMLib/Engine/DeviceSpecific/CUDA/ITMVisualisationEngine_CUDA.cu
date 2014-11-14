@@ -625,14 +625,11 @@ __global__ void createICPMaps_device(float *depth, Vector4f *pointsMap, Vector4f
 
 		outRendering[x + y * imgSize.x] = (uchar)outRes;
 #else
-    Vector3f coeff;
-    Vector3i pos = pt_ray.toIntFloor(coeff);
-    bool isFound;
-    TVoxel v = readVoxel(voxelData, voxelIndex, pos, isFound);
+    Vector4f clr = VoxelColorReader<TVoxel::hasColorInformation,TVoxel,typename TIndex::IndexData>::interpolate(voxelData, voxelIndex, pt_ray);
     Vector4u& o = outRendering[x + y * imgSize.x];
-    o.x = v.clr.r;
-    o.y = v.clr.g;
-    o.z = v.clr.b;
+    o.x = (uchar)(clr.r * 255.0f);
+    o.y = (uchar)(clr.g * 255.0f);
+    o.z = (uchar)(clr.b * 255.0f);
     o.w = 255;
 #endif
 
