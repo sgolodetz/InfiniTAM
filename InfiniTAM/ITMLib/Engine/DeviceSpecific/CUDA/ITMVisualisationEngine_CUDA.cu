@@ -508,22 +508,22 @@ __global__ void renderImage_device(Vector4u *outRendering,
 		if (!(angle > 0.0)) foundPoint = false;
 	}
 
-  Vector4u& outRef = outRendering[locId];
+	Vector4u& outRef = outRendering[locId];
 	if (foundPoint)
 	{
-    if(useColour && TVoxel::hasColorInformation)
-    {
-      Vector4f clr = VoxelColorReader<TVoxel::hasColorInformation,TVoxel,typename TIndex::IndexData>::interpolate(voxelData, voxelIndex, pt_ray);
-      outRef.x = (uchar)(clr.r * 255.0f);
-      outRef.y = (uchar)(clr.g * 255.0f);
-      outRef.z = (uchar)(clr.b * 255.0f);
-      outRef.w = 255;
-    }
-    else
-    {
-      float outRes = (0.8f * angle + 0.2f) * 255.0f;
-      outRef = Vector4u(outRes);
-    }
+		if (useColour && TVoxel::hasColorInformation)
+		{
+			Vector4f clr = VoxelColorReader<TVoxel::hasColorInformation,TVoxel,typename TIndex::IndexData>::interpolate(voxelData, voxelIndex, pt_ray);
+			outRef.x = (uchar)(clr.r * 255.0f);
+			outRef.y = (uchar)(clr.g * 255.0f);
+			outRef.z = (uchar)(clr.b * 255.0f);
+			outRef.w = 255;
+		}
+		else
+		{
+			float outRes = (0.8f * angle + 0.2f) * 255.0f;
+			outRef = Vector4u(outRes);
+		}
 	}
 	else
 	{
