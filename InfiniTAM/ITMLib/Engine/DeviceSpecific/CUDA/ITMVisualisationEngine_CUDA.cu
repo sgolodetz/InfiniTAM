@@ -620,9 +620,21 @@ __global__ void createICPMaps_device(float *depth, Vector4f *pointsMap, Vector4f
 
 	if (foundPoint)
 	{
+#if 0
 		float outRes = (0.8f * angle + 0.2f) * 255.0f;
 
 		outRendering[x + y * imgSize.x] = (uchar)outRes;
+#else
+    Vector3f coeff;
+    Vector3i pos = pt_ray.toIntFloor(coeff);
+    bool isFound;
+    TVoxel v = readVoxel(voxelData, voxelIndex, pos, isFound);
+    Vector4u& o = outRendering[x + y * imgSize.x];
+    o.x = v.clr.r;
+    o.y = v.clr.g;
+    o.z = v.clr.b;
+    o.w = 255;
+#endif
 
 		Vector4f outNormal4;
 		outNormal4.x = outNormal.x; outNormal4.y = outNormal.y; outNormal4.z = outNormal.z; outNormal4.w = 0.0f;
