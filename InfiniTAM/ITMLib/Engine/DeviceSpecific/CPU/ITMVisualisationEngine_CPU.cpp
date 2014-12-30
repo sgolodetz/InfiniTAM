@@ -357,4 +357,18 @@ void ITMVisualisationEngine_CPU<TVoxel,ITMVoxelBlockHash>::CreateICPMaps(const I
 	CreateICPMaps_common(scene, view, trackingState);
 }
 
+template <class TVoxel, class TIndex>
+bool ITMVisualisationEngine_CPU<TVoxel,TIndex>::Pick(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const
+{
+  // TODO
+  return false;
+}
+
+template <class TVoxel>
+bool ITMVisualisationEngine_CPU<TVoxel,ITMVoxelBlockHash>::Pick(const ITMScene<TVoxel,ITMVoxelBlockHash> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const
+{
+  // TODO
+  return false;
+}
+
 template class ITMLib::Engine::ITMVisualisationEngine_CPU<ITMVoxel, ITMVoxelIndex>;

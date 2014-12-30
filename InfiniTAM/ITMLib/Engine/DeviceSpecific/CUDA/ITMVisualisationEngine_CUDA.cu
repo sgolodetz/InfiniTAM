@@ -36,6 +36,10 @@ __global__ void genericRaycastAndRender_device(TRaycastRenderer renderer,
 	 const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, Matrix4f invM, Vector4f projParams,
 	float oneOverVoxelSize, const Vector2f *minmaxdata, float mu, Vector3f lightSource);
 
+template<class TVoxel, class TIndex>
+__global__ void pick_device(const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, int x, int y, Matrix4f invM,
+	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool& result, Vector3f& hitPoint);
+
 // class implementation
 
 template<class TVoxel>
@@ -325,6 +329,28 @@ void CreateICPMaps_common(const ITMScene<TVoxel,TIndex> *scene, const ITMView *v
 	ITMSafeCall(cudaThreadSynchronize());
 }
 
+template <class TVoxel, class TIndex>
+bool Pick_common(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint)
+{
+  Vector2i imgSize = view->depth->noDims;
+  float oneOverVoxelSize = 1.0f / scene->sceneParams->voxelSize;
+
+  Matrix4f invM = trackingState->pose_d->invM;
+  Vector4f projParams = view->calib->intrinsics_d.projectionParamsSimple.all;
+  projParams.x = 1.0f / projParams.x;
+  projParams.y = 1.0f / projParams.y;
+
+  float mu = scene->sceneParams->mu;
+
+  Vector2f *minmaxdata = trackingState->renderingRangeImage->GetData(true);
+
+  bool result;
+  pick_device<TVoxel,TIndex> <<<1,1>>>(
+    scene->localVBA.GetVoxelBlocks(), scene->index.getIndexData(), imgSize, x, y, invM, projParams, oneOverVoxelSize, minmaxdata, mu, result, hitPoint
+  );
+  return result;
+}
+
 template<class TVoxel, class TIndex>
 void ITMVisualisationEngine_CUDA<TVoxel,TIndex>::RenderImage(const ITMScene<TVoxel,TIndex> *scene, const ITMPose *pose, const ITMIntrinsics *intrinsics, const ITMVisualisationState *state, ITMUChar4Image *outputImage, bool useColour)
 {
@@ -359,6 +385,18 @@ template<class TVoxel>
 void ITMVisualisationEngine_CUDA<TVoxel,ITMVoxelBlockHash>::CreateICPMaps(const ITMScene<TVoxel,ITMVoxelBlockHash> *scene, const ITMView *view, ITMTrackingState *trackingState)
 {
 	CreateICPMaps_common(scene, view, trackingState);
+}
+
+template <class TVoxel, class TIndex>
+bool ITMVisualisationEngine_CUDA<TVoxel,TIndex>::Pick(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const
+{
+  return Pick_common(scene, view, trackingState, x, y, hitPoint);
+}
+
+template <class TVoxel>
+bool ITMVisualisationEngine_CUDA<TVoxel,ITMVoxelBlockHash>::Pick(const ITMScene<TVoxel,ITMVoxelBlockHash> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const
+{
+  return Pick_common(scene, view, trackingState, x, y, hitPoint);
 }
 
 //device implementations
@@ -526,6 +564,28 @@ __global__ void genericRaycastAndRender_device(TRaycastRenderer renderer,
 	if (x >= imgSize.x || y >= imgSize.y) return;
 
 	genericRaycastAndRender<TVoxel,TIndex>(x,y, renderer, voxelData, voxelIndex, imgSize, invM, projParams, oneOverVoxelSize, minmaxdata, mu, lightSource);
+}
+
+template<class TVoxel, class TIndex>
+__global__ void pick_device(const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, int x, int y, Matrix4f invM,
+	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool& result, Vector3f& hitPoint)
+{
+  int locId = x + y * imgSize.x;
+  float viewFrustum_min = minmaxdata[locId].x;
+	float viewFrustum_max = minmaxdata[locId].y;
+
+  result = castRay<TVoxel,TIndex>(
+    hitPoint,
+    x, y,
+    voxelData,
+    voxelIndex,
+    invM,
+    projParams,
+    oneOverVoxelSize,
+    mu,
+    viewFrustum_min,
+    viewFrustum_max
+  );
 }
 
 template class ITMLib::Engine::ITMVisualisationEngine_CUDA<ITMVoxel, ITMVoxelIndex>;

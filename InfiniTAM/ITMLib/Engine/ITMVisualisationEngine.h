@@ -68,6 +68,9 @@ namespace ITMLib
 			    classes.
 			*/
 			virtual void CreateICPMaps(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, ITMTrackingState *trackingState) = 0;
+
+      /** Cast a ray into the scene and find the point hit (if any). */
+      virtual bool Pick(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const = 0;
 		};
 	}
 }
