@@ -38,7 +38,7 @@ __global__ void genericRaycastAndRender_device(TRaycastRenderer renderer,
 
 template<class TVoxel, class TIndex>
 __global__ void pick_device(const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, int x, int y, Matrix4f invM,
-	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool& result, Vector3f& hitPoint);
+	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool *result, Vector3f *hitPoint);
 
 // class implementation
 
@@ -344,10 +344,18 @@ bool Pick_common(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, cons
 
   Vector2f *minmaxdata = trackingState->renderingRangeImage->GetData(true);
 
-  bool result;
+  bool *deviceResult;
+  Vector3f *deviceHitPoint;
+  cudaMalloc((void**)&deviceResult, sizeof(bool));
+  cudaMalloc((void**)&deviceHitPoint, sizeof(Vector3f));
   pick_device<TVoxel,TIndex> <<<1,1>>>(
-    scene->localVBA.GetVoxelBlocks(), scene->index.getIndexData(), imgSize, x, y, invM, projParams, oneOverVoxelSize, minmaxdata, mu, result, hitPoint
+    scene->localVBA.GetVoxelBlocks(), scene->index.getIndexData(), imgSize, x, y, invM, projParams, oneOverVoxelSize, minmaxdata, mu, deviceResult, deviceHitPoint
   );
+  bool result;
+  cudaMemcpy(&result, deviceResult, sizeof(bool), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&hitPoint, deviceHitPoint, sizeof(Vector3f), cudaMemcpyDeviceToHost);
+  cudaFree(deviceResult);
+  cudaFree(deviceHitPoint);
   return result;
 }
 
@@ -568,14 +576,14 @@ __global__ void genericRaycastAndRender_device(TRaycastRenderer renderer,
 
 template<class TVoxel, class TIndex>
 __global__ void pick_device(const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, int x, int y, Matrix4f invM,
-	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool& result, Vector3f& hitPoint)
+	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool *result, Vector3f *hitPoint)
 {
   int locId = x + y * imgSize.x;
   float viewFrustum_min = minmaxdata[locId].x;
 	float viewFrustum_max = minmaxdata[locId].y;
 
-  result = castRay<TVoxel,TIndex>(
-    hitPoint,
+  *result = castRay<TVoxel,TIndex>(
+    *hitPoint,
     x, y,
     voxelData,
     voxelIndex,
