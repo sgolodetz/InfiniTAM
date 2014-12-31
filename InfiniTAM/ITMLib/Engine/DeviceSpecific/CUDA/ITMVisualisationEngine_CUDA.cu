@@ -38,7 +38,7 @@ __global__ void genericRaycastAndRender_device(TRaycastRenderer renderer,
 
 template<class TVoxel, class TIndex>
 __global__ void pick_device(const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, int x, int y, Matrix4f invM,
-	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool *result, Vector3f *hitPoint);
+	Vector4f projParams, float oneOverVoxelSize, const Vector2f *minmaxdata, float mu, bool *result, Vector3f *hitPoint);
 
 // class implementation
 
@@ -330,19 +330,17 @@ void CreateICPMaps_common(const ITMScene<TVoxel,TIndex> *scene, const ITMView *v
 }
 
 template <class TVoxel, class TIndex>
-bool Pick_common(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint)
+bool Pick_common(const ITMScene<TVoxel,TIndex> *scene, const ITMPose *pose, const ITMIntrinsics *intrinsics, const Vector2i& imgSize, const Vector2f *minmaxdata,
+                 int x, int y, Vector3f& hitPoint)
 {
-  Vector2i imgSize = view->depth->noDims;
   float oneOverVoxelSize = 1.0f / scene->sceneParams->voxelSize;
 
-  Matrix4f invM = trackingState->pose_d->invM;
-  Vector4f projParams = view->calib->intrinsics_d.projectionParamsSimple.all;
+  Matrix4f invM = pose->invM;
+  Vector4f projParams = intrinsics->projectionParamsSimple.all;
   projParams.x = 1.0f / projParams.x;
   projParams.y = 1.0f / projParams.y;
 
   float mu = scene->sceneParams->mu;
-
-  Vector2f *minmaxdata = trackingState->renderingRangeImage->GetData(true);
 
   bool *deviceResult;
   Vector3f *deviceHitPoint;
@@ -396,15 +394,15 @@ void ITMVisualisationEngine_CUDA<TVoxel,ITMVoxelBlockHash>::CreateICPMaps(const 
 }
 
 template <class TVoxel, class TIndex>
-bool ITMVisualisationEngine_CUDA<TVoxel,TIndex>::Pick(const ITMScene<TVoxel,TIndex> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const
+bool ITMVisualisationEngine_CUDA<TVoxel,TIndex>::Pick(const ITMScene<TVoxel,TIndex> *scene, const ITMPose *pose, const ITMIntrinsics *intrinsics, const Vector2i& imgSize, const Vector2f *minmaxdata, int x, int y, Vector3f& hitPoint) const
 {
-  return Pick_common(scene, view, trackingState, x, y, hitPoint);
+  return Pick_common(scene, pose, intrinsics, imgSize, minmaxdata, x, y, hitPoint);
 }
 
 template <class TVoxel>
-bool ITMVisualisationEngine_CUDA<TVoxel,ITMVoxelBlockHash>::Pick(const ITMScene<TVoxel,ITMVoxelBlockHash> *scene, const ITMView *view, const ITMTrackingState *trackingState, int x, int y, Vector3f& hitPoint) const
+bool ITMVisualisationEngine_CUDA<TVoxel,ITMVoxelBlockHash>::Pick(const ITMScene<TVoxel,ITMVoxelBlockHash> *scene, const ITMPose *pose, const ITMIntrinsics *intrinsics, const Vector2i& imgSize, const Vector2f *minmaxdata, int x, int y, Vector3f& hitPoint) const
 {
-  return Pick_common(scene, view, trackingState, x, y, hitPoint);
+  return Pick_common(scene, pose, intrinsics, imgSize, minmaxdata, x, y, hitPoint);
 }
 
 //device implementations
@@ -576,7 +574,7 @@ __global__ void genericRaycastAndRender_device(TRaycastRenderer renderer,
 
 template<class TVoxel, class TIndex>
 __global__ void pick_device(const TVoxel *voxelData, const typename TIndex::IndexData *voxelIndex, Vector2i imgSize, int x, int y, Matrix4f invM,
-	Vector4f projParams, float oneOverVoxelSize, Vector2f *minmaxdata, float mu, bool *result, Vector3f *hitPoint)
+	Vector4f projParams, float oneOverVoxelSize, const Vector2f *minmaxdata, float mu, bool *result, Vector3f *hitPoint)
 {
   int locId = x + y * imgSize.x;
   float viewFrustum_min = minmaxdata[locId].x;
